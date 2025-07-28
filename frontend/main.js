@@ -1,4 +1,5 @@
 import vision from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3";
+const socket = new WebSocket(`wss://${location.host}`);
 const { FaceLandmarker, FilesetResolver, DrawingUtils } = vision;
 const player1_camera = document.getElementById('player1_camera');
 const canvas = document.getElementById('table_tennis');
@@ -52,7 +53,8 @@ await creatFaceLandmarker();
 
 let lastVideoTime = -1;
 
-async function detectEyeBlink() {
+function playGame() {
+    // detect whether eye blink or not
     let startTimeMs = performance.now();
     if (lastVideoTime !== player1_camera.currentTime) {
         lastVideoTime = player1_camera.currentTime;
@@ -62,13 +64,6 @@ async function detectEyeBlink() {
     eyeBlinkLeft = results?.faceBlendshapes[0]?.categories.find(item => item.categoryName == "eyeBlinkLeft");
     eyeBlinkRight = results?.faceBlendshapes[0]?.categories.find(item => item.categoryName == "eyeBlinkRight");
 
-    // Call this function again to keep predicting when the browser is ready
-    window.requestAnimationFrame(detectEyeBlink);
-}
-
-detectEyeBlink();
-
-function playGame() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     // draw player1_camera
@@ -79,16 +74,16 @@ function playGame() {
     ctx.fillRect(paddleX, canvas.height - paddleHeight - 10, paddleWidth, paddleHeight);
 
     // blink to move paddle
-    // if (eyeBlinkLeft && eyeBlinkRight) {
-    //     if (eyeBlinkLeft.score - eyeBlinkRight.score > 0.1) paddleX -= paddleSpeed;
-    //     if (eyeBlinkRight.score - eyeBlinkLeft.score > 0.1) paddleX += paddleSpeed;
+    if (eyeBlinkLeft && eyeBlinkRight && (eyeBlinkLeft.score >= 0.3 || eyeBlinkRight.score >= 0.3)) {
+        if (eyeBlinkLeft.score - eyeBlinkRight.score > 0.05) paddleX -= paddleSpeed;
+        if (eyeBlinkRight.score - eyeBlinkLeft.score > 0.05) paddleX += paddleSpeed;
+    }
+    // if (eyeBlinkLeft && eyeBlinkLeft.score >= 0.3) {
+    //     paddleX -= paddleSpeed;
     // }
-    if (eyeBlinkLeft && eyeBlinkLeft.score >= 0.3) {
-        paddleX -= paddleSpeed;
-    }
-    if (eyeBlinkRight && eyeBlinkRight.score >= 0.3) {
-        paddleX += paddleSpeed;
-    }
+    // if (eyeBlinkRight && eyeBlinkRight.score >= 0.3) {
+    //     paddleX += paddleSpeed;
+    // }
 
     paddleX = Math.max(0, Math.min(paddleX, canvas.width - paddleWidth));
 
