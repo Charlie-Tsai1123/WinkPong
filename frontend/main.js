@@ -6,7 +6,9 @@ const canvas = document.getElementById('table_tennis');
 const ctx = canvas.getContext("2d");
 const paddleWidth = 100;
 const paddleHeight = 20;
-const paddleSpeed = 5;
+const paddleSpeed = 300;
+const detectInterval = 50;
+let lastTime = performance.now();
 let runningMode = "VIDEO";
 let faceLandmarker;
 let results;
@@ -16,8 +18,8 @@ let paddleX = (canvas.width - paddleWidth) / 2;
 let ballX = canvas.width / 2;
 let ballY = canvas.height / 2;
 let ballRadius = 10;
-let ballSpeedX=  1;
-let ballSpeedY = -1;
+let ballSpeedX=  150;
+let ballSpeedY = -150;
 
 
 async function openCamera() {
@@ -51,13 +53,36 @@ async function creatFaceLandmarker() {
 await openCamera();
 await creatFaceLandmarker();
 
-let lastVideoTime = -1;
+// function resizeCanvasToScreen() {
+//     const dpr = window.devicePixelRatio || 1;
+//     canvas.width = window.innerWidth * dpr;
+//     canvas.height = window.innerHeight * dpr * 0.8;
+//     canvas.style.width = window.innerWidth + 'px';
+//     canvas.style.height = window.innerHeight + 'px';
+//     // ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-function playGame() {
+//     paddleX = (canvas.width / dpr - paddleWidth) / 2;
+//     ballX = canvas.width / dpr / 2;
+//     ballY = canvas.height / dpr / 2;
+// }
+
+
+// resizeCanvasToScreen();
+// window.addEventListener('resize', resizeCanvasToScreen);
+
+let lastVideoTime = -1;
+let lastDetectTime = -1;
+
+function playGame(currentTime) {
+    // calculate delta time
+    const deltaTime = (currentTime - lastTime) / 1000; // second
+    lastTime = currentTime;
+
     // detect whether eye blink or not
     let startTimeMs = performance.now();
-    if (lastVideoTime !== player1_camera.currentTime) {
+    if (startTimeMs - lastDetectTime > detectInterval && lastVideoTime !== player1_camera.currentTime) {
         lastVideoTime = player1_camera.currentTime;
+        lastDetectTime = startTimeMs;
         results = faceLandmarker.detectForVideo(player1_camera, startTimeMs);
     }
 
@@ -67,7 +92,10 @@ function playGame() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     // draw player1_camera
-    ctx.drawImage(player1_camera, 0, 0, canvas.width, canvas.height);
+    if (player1_camera.readyState >= 2) {
+        ctx.drawImage(player1_camera, 0, 0, canvas.width, canvas.height);
+    }
+    // ctx.drawImage(player1_camera, 0, 0, canvas.width, canvas.height);
 
     // draw paddle
     ctx.fillStyle = "blue";
@@ -75,8 +103,8 @@ function playGame() {
 
     // blink to move paddle
     if (eyeBlinkLeft && eyeBlinkRight && (eyeBlinkLeft.score >= 0.3 || eyeBlinkRight.score >= 0.3)) {
-        if (eyeBlinkLeft.score - eyeBlinkRight.score > 0.05) paddleX -= paddleSpeed;
-        if (eyeBlinkRight.score - eyeBlinkLeft.score > 0.05) paddleX += paddleSpeed;
+        if (eyeBlinkLeft.score - eyeBlinkRight.score > 0.05) paddleX -= paddleSpeed * deltaTime;
+        if (eyeBlinkRight.score - eyeBlinkLeft.score > 0.05) paddleX += paddleSpeed * deltaTime;
     }
     // if (eyeBlinkLeft && eyeBlinkLeft.score >= 0.3) {
     //     paddleX -= paddleSpeed;
@@ -94,8 +122,8 @@ function playGame() {
     ctx.fill();
     ctx.closePath();
 
-    ballX += ballSpeedX;
-    ballY += ballSpeedY;
+    ballX += ballSpeedX * deltaTime;
+    ballY += ballSpeedY * deltaTime;
 
     // hit the wall
     if (ballX + ballRadius > canvas.width || ballX - ballRadius < 0) ballSpeedX *= -1;
@@ -113,9 +141,10 @@ function playGame() {
         alert("Game over 😵!");
         ballX = canvas.width / 2;
         ballY = canvas.height / 2;
-        ballSpeedY = -1;
+        ballSpeedY = -100;
+        lastTime = performance.now();
     }
     window.requestAnimationFrame(playGame);
 }
 
-playGame();
+window.requestAnimationFrame(playGame);
