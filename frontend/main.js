@@ -316,12 +316,69 @@ function creatorUpdateParams() {
         ballSpeedY *= -1;
     }
 
+    if (ballY - ballRadius < 30 + paddleHeight && 
+        ballX > peerPaddleX && ballX < peerPaddleX + paddleWidth
+    ) {
+        ballSpeedY *= -1;
+    }
+
     // fall to the ground
     if (ballY + ballRadius > canvasTableTennis.height) {
-        alert("Game over 😵!");
+        socket.emit('peer-win', roomName);
+        alert("Game over! HA! HA! Loser 😵!");
         ballX = canvasTableTennis.width / 2;
         ballY = canvasTableTennis.height / 2;
         ballSpeedY = -100;
         lastTime = performance.now();
     }
+
+    // client loose
+    if (ballY - ballRadius < 0) {
+        socket.emit('peer-lose', roomName);
+        alert("Game over! SKR~ Winner 👑!");
+        ballX = canvasTableTennis.width / 2;
+        ballY = canvasTableTennis.height / 2;
+        ballSpeedY = -100;
+        lastTime = performance.now();
+    }
+
+    socket.emit('send-ball-and-paddle', ballX, ballY, userPaddleX, roomName);
 }
+
+// second person
+socket.on('receive-ball-and-paddle', (receiveBallX, receiveBallY, receivePeerPaddleX) => {
+    ballX = receiveBallX;
+    ballY = canvasTableTennis.height - receiveBallY;
+    peerPaddleX = receivePeerPaddleX;
+})
+
+socket.on("receive-win", () => {
+    alert("Game over! SKR~ Winner 👑!");
+    
+})
+
+socket.on("receive-lose", () => {
+    alert("Game over! HA! HA! Loser 😵!");
+})
+
+function clientUpdateParams() {
+    // blink to move paddle
+    if (eyeBlinkLeft && eyeBlinkRight && (eyeBlinkLeft.score >= 0.3 || eyeBlinkRight.score >= 0.3)) {
+        if (eyeBlinkLeft.score - eyeBlinkRight.score > 0.05) userPaddleX -= paddleSpeed * deltaTime;
+        if (eyeBlinkRight.score - eyeBlinkLeft.score > 0.05) userPaddleX += paddleSpeed * deltaTime;
+    }
+    // if (eyeBlinkLeft && eyeBlinkLeft.score >= 0.3) {
+    //     userPaddleX -= paddleSpeed;
+    // }
+    // if (eyeBlinkRight && eyeBlinkRight.score >= 0.3) {
+    //     userPaddleX += paddleSpeed;
+    // }
+
+    userPaddleX = Math.max(0, Math.min(userPaddleX, canvasTableTennis.width - paddleWidth));
+    socket.emit('send-paddle', userPaddleX, roomName);
+}
+
+// first person
+socket.on('receive-paddle', (receivePeerPaddleX) => {
+    peerPaddleX = receivePeerPaddleX;
+})

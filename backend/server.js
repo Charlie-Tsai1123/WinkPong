@@ -45,7 +45,6 @@ io.on("connection", (socket) => {
     })
 
     socket.on("candidate", (candidate, roomName) => {
-        console.log("candidate");
         socket.broadcast.to(roomName).emit("sendCandidate", candidate); // send candidate to peer in the room
     })
 
@@ -63,6 +62,22 @@ io.on("connection", (socket) => {
         const rooms = io.sockets.adapter.rooms;
         rooms.delete(roomName);
         console.log(rooms);
+    })
+
+    socket.on("send-ball-and-paddle", (ballX, ballY, userPaddleX, roomName) => {
+        socket.broadcast.to(roomName).emit("receive-ball-and-paddle", ballX, ballY, userPaddleX);
+    })
+
+    socket.on("send-paddle", (paddleX, roomName) => {
+        socket.broadcast.to(roomName).emit("receive-paddle", paddleX);
+    })
+
+    socket.on('peer-win', (roomName) => {
+        socket.broadcast.to(roomName).emit("receive-win");
+    })
+
+    socket.on('peer-lose', (roomName) => {
+        socket.broadcast.to(roomName).emit("receive-lose");
     })
 
     socket.on("disconnect", () => {
