@@ -1,35 +1,259 @@
 import vision from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3";
-const socket = new WebSocket(`wss://${location.host}`);
 const { FaceLandmarker, FilesetResolver, DrawingUtils } = vision;
-const player1_camera = document.getElementById('player1_camera');
-const canvas = document.getElementById('table_tennis');
-const ctx = canvas.getContext("2d");
+const socket = io.connect(`https://${location.host}:443`);
+const divVideoChatLobby = document.getElementById('video-chat-lobby');
+const divVideoChat = document.getElementById('video-chat-room');
+const joinButton = document.getElementById('join');
+const userVideo = document.getElementById('user-video');
+const peerVideo = document.getElementById('peer-video');
+const roomInput = document.getElementById('roomName');
+const canvasTableTennis = document.getElementById('table-tennis');
+const ctx = canvasTableTennis.getContext("2d");
+const iceServers = {
+  iceServers: [
+    { urls: "stun:stun.services.mozilla.com" },
+    { urls: "stun:stun.l.google.com:19302" },
+  ],
+};
 const paddleWidth = 100;
 const paddleHeight = 20;
 const paddleSpeed = 300;
 const detectInterval = 50;
-let lastTime = performance.now();
+
+let roomName;
+let creator = false;
+let rtcPeerConnection;
+let userStream;
+let animationFrameId;
+let lastTime;
+let lastVideoTime = -1;
+let lastDetectTime = -1;
+let deltaTime
 let runningMode = "VIDEO";
 let faceLandmarker;
 let results;
 let eyeBlinkLeft;
 let eyeBlinkRight;
-let paddleX = (canvas.width - paddleWidth) / 2;
-let ballX = canvas.width / 2;
-let ballY = canvas.height / 2;
-let ballRadius = 10;
-let ballSpeedX=  150;
-let ballSpeedY = -150;
+let userPaddleX = (canvasTableTennis.width - paddleWidth) / 2;
+let peerPaddleX = (canvasTableTennis.width - paddleWidth) / 2;
+let ballX = canvasTableTennis.width / 2;
+let ballY = canvasTableTennis.height / 2;
+let ballRadius = 15;
+let ballSpeedX=  100;
+let ballSpeedY = -100;
 
+await creatFaceLandmarker();
 
-async function openCamera() {
-    try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-        player1_camera.srcObject = stream;
-    } catch (err) {
-        console.error('Cannot open the camera', err);
-        alert('Please allow the camera to open!');
+joinButton.addEventListener("click", () => {
+    if (roomInput.value == "") {
+        alert("Please enter a room name");
+    } else {
+        roomName = roomInput.value;
+        socket.emit('join', roomName);
     }
+})
+
+socket.on('created', () => {
+    creator = true;
+
+    navigator.mediaDevices
+        .getUserMedia({
+            audio: true,
+            video: true,
+        })
+        .then((stream) => {
+            userStream = stream;
+            divVideoChatLobby.style = "display:none";
+            divVideoChat.style = "display:block";
+            userVideo.srcObject = stream;
+            userVideo.onloadedmetadata = function (e) {
+                userVideo.play();
+            };
+            animationFrameId = requestAnimationFrame(playGame);
+        })
+        .catch((err) => {
+            alert("Couldn't access user media");
+        })
+})
+
+socket.on('joined', () => {
+    creator = false;
+
+    navigator.mediaDevices
+        .getUserMedia({
+            audio: true,
+            video: true,
+        })
+        .then((stream) => {
+            userStream = stream;
+            divVideoChatLobby.style = "display:none";
+            userVideo.srcObject = stream;
+            userVideo.onloadedmetadata = function (e) {
+                userVideo.play();
+            };
+            animationFrameId = requestAnimationFrame(playGame);
+            socket.emit('ready', roomName);
+        })
+        .catch((err) => {
+            alert("Couldn't access user media");
+        })
+})
+
+socket.on('full', () => {
+    alert("Room is Full, can't join");
+})
+
+// first person
+socket.on('ready', () => {
+    if (creator) {
+        rtcPeerConnection = new RTCPeerConnection(iceServers);
+        rtcPeerConnection.onicecandidate = (event) => {
+            console.log("ICE candidate");
+            if (event.candidate) {
+                socket.emit("candidate", event.candidate, roomName);
+            }
+        }
+        rtcPeerConnection.ontrack = (event) => {
+            peerVideo.srcObject = event.streams[0];
+            peerVideo.onloadedmetadata = function (e) {
+                peerVideo.play();
+            };
+        }
+        rtcPeerConnection.addTrack(userStream.getTracks()[0], userStream);
+        rtcPeerConnection.addTrack(userStream.getTracks()[1], userStream);
+        rtcPeerConnection
+            .createOffer()
+            .then((offer) => {
+                rtcPeerConnection.setLocalDescription(offer);
+                socket.emit("offer", offer, roomName);
+            })
+            .catch((err) => {
+                console.log("offer error");
+            })
+    }
+})
+
+// both person receive the candidate of other
+socket.on('sendCandidate', (candidate) => {
+    rtcPeerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+})
+
+// second person receiver offer
+socket.on('sendOffer', (offer) => {
+    if (!creator) {
+        rtcPeerConnection = new RTCPeerConnection(iceServers);
+        rtcPeerConnection.onicecandidate = (event) => {
+            console.log("ICE candidate");
+            if (event.candidate) {
+                socket.emit("candidate", event.candidate, roomName);
+            }
+        }
+        rtcPeerConnection.ontrack = (event) => {
+            peerVideo.srcObject = event.streams[0];
+            peerVideo.onloadedmetadata = function (e) {
+                peerVideo.play();
+            };
+        }
+        rtcPeerConnection.addTrack(userStream.getTracks()[0], userStream);
+        rtcPeerConnection.addTrack(userStream.getTracks()[1], userStream);
+        rtcPeerConnection.setRemoteDescription(offer);
+        rtcPeerConnection
+            .createAnswer()
+            .then((answer) => {
+                rtcPeerConnection.setLocalDescription(answer);
+                socket.emit('answer', answer, roomName);
+            })
+            .catch((err) => {
+                console.log("answer error");
+            })
+    }
+})
+
+// first person receive answer
+socket.on('sendAnswer', (answer) => {
+    rtcPeerConnection.setRemoteDescription(answer);
+})
+
+socket.on('peer-disconnected', () => {
+    alert("Your chat partner has left!!");
+
+    // back to lobby
+    divVideoChat.style.display = "none";
+    divVideoChatLobby.style.display = "block";
+
+    // stop user stream
+    if (userStream) {
+        userStream.getTracks().forEach(track => track.stop());
+        userVideo.srcObject = null;
+    }
+
+    // stop peer stream
+    peerVideo.srcObject = null;
+
+    //close RTCPeerConnection
+    if (rtcPeerConnection) {
+        rtcPeerConnection.close();
+        rtcPeerConnection = null;
+    }
+
+    // clear canvas
+    ctx.clearRect(0, 0, canvasTableTennis.width, canvasTableTennis.height);
+
+    // cancel animation frame
+    cancelAnimationFrame(animationFrameId);
+    animationFrameId = null;
+
+    creator = false;
+
+    socket.emit("leave-room", roomName);
+})
+
+function playGame(currentTime) {
+    ctx.clearRect(0, 0, canvasTableTennis.width, canvasTableTennis.height);
+    // draw user video
+    if (userVideo.readyState >= 2) {
+        ctx.drawImage(userVideo, 0, canvasTableTennis.height / 2, canvasTableTennis.width, canvasTableTennis.height / 2);
+    }
+    if (peerVideo.readyState >= 2) {
+        ctx.drawImage(peerVideo, 0, 0, canvasTableTennis.width, canvasTableTennis.height / 2);
+    }
+
+    // start to play table tennis
+    if (userVideo.readyState >= 2 && peerVideo.readyState >= 2){
+        if (!lastTime) lastTime = currentTime;
+        // calculate delta time
+        deltaTime = (currentTime - lastTime) / 1000 // second
+        lastTime = currentTime;
+
+        // detect whether eye blink or not
+        detectEyeBlink();
+
+        // draw canvas
+        drawCanvas();
+
+        // update params
+        if (creator) {
+            creatorUpdateParams();
+        } else {
+            clientUpdateParams();
+        }
+    }
+    animationFrameId = requestAnimationFrame(playGame);
+}
+
+function drawCanvas() {
+    // draw user (blue) and peer (green) paddle
+    ctx.fillStyle = "blue";
+    ctx.fillRect(userPaddleX, canvasTableTennis.height - paddleHeight - 30, paddleWidth, paddleHeight);
+    ctx.fillStyle = "green";
+    ctx.fillRect(peerPaddleX, 30, paddleWidth, paddleHeight);
+
+    // draw ball
+    ctx.beginPath();
+    ctx.arc(ballX, ballY, ballRadius, 0, Math.PI*2);
+    ctx.fillStyle = "red";
+    ctx.fill();
+    ctx.closePath();
 }
 
 async function creatFaceLandmarker() {
@@ -40,8 +264,8 @@ async function creatFaceLandmarker() {
     // set model
     faceLandmarker = await FaceLandmarker.createFromOptions(filesetResolver, {
         baseOptions: {
-        modelAssetPath: `https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task`,
-        delegate: "GPU"
+        modelAssetPath: `face_landmarker.task`,
+        delegate: "CPU"
         },
         outputFaceBlendshapes: true,
         runningMode,
@@ -50,101 +274,54 @@ async function creatFaceLandmarker() {
 
 }
 
-await openCamera();
-await creatFaceLandmarker();
-
-// function resizeCanvasToScreen() {
-//     const dpr = window.devicePixelRatio || 1;
-//     canvas.width = window.innerWidth * dpr;
-//     canvas.height = window.innerHeight * dpr * 0.8;
-//     canvas.style.width = window.innerWidth + 'px';
-//     canvas.style.height = window.innerHeight + 'px';
-//     // ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-
-//     paddleX = (canvas.width / dpr - paddleWidth) / 2;
-//     ballX = canvas.width / dpr / 2;
-//     ballY = canvas.height / dpr / 2;
-// }
-
-
-// resizeCanvasToScreen();
-// window.addEventListener('resize', resizeCanvasToScreen);
-
-let lastVideoTime = -1;
-let lastDetectTime = -1;
-
-function playGame(currentTime) {
-    // calculate delta time
-    const deltaTime = (currentTime - lastTime) / 1000; // second
-    lastTime = currentTime;
-
+function detectEyeBlink() {
     // detect whether eye blink or not
     let startTimeMs = performance.now();
-    if (startTimeMs - lastDetectTime > detectInterval && lastVideoTime !== player1_camera.currentTime) {
-        lastVideoTime = player1_camera.currentTime;
+    if (startTimeMs - lastDetectTime > detectInterval && lastVideoTime !== userVideo.currentTime) {
+        lastVideoTime = userVideo.currentTime;
         lastDetectTime = startTimeMs;
-        results = faceLandmarker.detectForVideo(player1_camera, startTimeMs);
+        results = faceLandmarker.detectForVideo(userVideo, startTimeMs);
     }
 
     eyeBlinkLeft = results?.faceBlendshapes[0]?.categories.find(item => item.categoryName == "eyeBlinkLeft");
     eyeBlinkRight = results?.faceBlendshapes[0]?.categories.find(item => item.categoryName == "eyeBlinkRight");
+}
 
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    // draw player1_camera
-    if (player1_camera.readyState >= 2) {
-        ctx.drawImage(player1_camera, 0, 0, canvas.width, canvas.height);
-    }
-    // ctx.drawImage(player1_camera, 0, 0, canvas.width, canvas.height);
-
-    // draw paddle
-    ctx.fillStyle = "blue";
-    ctx.fillRect(paddleX, canvas.height - paddleHeight - 10, paddleWidth, paddleHeight);
-
+function creatorUpdateParams() {
     // blink to move paddle
     if (eyeBlinkLeft && eyeBlinkRight && (eyeBlinkLeft.score >= 0.3 || eyeBlinkRight.score >= 0.3)) {
-        if (eyeBlinkLeft.score - eyeBlinkRight.score > 0.05) paddleX -= paddleSpeed * deltaTime;
-        if (eyeBlinkRight.score - eyeBlinkLeft.score > 0.05) paddleX += paddleSpeed * deltaTime;
+        if (eyeBlinkLeft.score - eyeBlinkRight.score > 0.05) userPaddleX -= paddleSpeed * deltaTime;
+        if (eyeBlinkRight.score - eyeBlinkLeft.score > 0.05) userPaddleX += paddleSpeed * deltaTime;
     }
     // if (eyeBlinkLeft && eyeBlinkLeft.score >= 0.3) {
-    //     paddleX -= paddleSpeed;
+    //     userPaddleX -= paddleSpeed;
     // }
     // if (eyeBlinkRight && eyeBlinkRight.score >= 0.3) {
-    //     paddleX += paddleSpeed;
+    //     userPaddleX += paddleSpeed;
     // }
 
-    paddleX = Math.max(0, Math.min(paddleX, canvas.width - paddleWidth));
-
-    // draw ball
-    ctx.beginPath();
-    ctx.arc(ballX, ballY, ballRadius, 0, Math.PI*2);
-    ctx.fillStyle = "red";
-    ctx.fill();
-    ctx.closePath();
+    userPaddleX = Math.max(0, Math.min(userPaddleX, canvasTableTennis.width - paddleWidth));
 
     ballX += ballSpeedX * deltaTime;
     ballY += ballSpeedY * deltaTime;
 
     // hit the wall
-    if (ballX + ballRadius > canvas.width || ballX - ballRadius < 0) ballSpeedX *= -1;
+    if (ballX + ballRadius > canvasTableTennis.width || ballX - ballRadius < 0) ballSpeedX *= -1;
     if (ballY - ballRadius < 0) ballSpeedY *= -1;
 
     //hit the board
-    if (ballY + ballRadius > canvas.height - paddleHeight - 10 &&
-        ballX > paddleX && ballX < paddleX + paddleWidth
+    if (ballY + ballRadius > canvasTableTennis.height - paddleHeight - 30 &&
+        ballX > userPaddleX && ballX < userPaddleX + paddleWidth
     ) {
         ballSpeedY *= -1;
     }
 
     // fall to the ground
-    if (ballY + ballRadius > canvas.height) {
+    if (ballY + ballRadius > canvasTableTennis.height) {
         alert("Game over 😵!");
-        ballX = canvas.width / 2;
-        ballY = canvas.height / 2;
+        ballX = canvasTableTennis.width / 2;
+        ballY = canvasTableTennis.height / 2;
         ballSpeedY = -100;
         lastTime = performance.now();
     }
-    window.requestAnimationFrame(playGame);
 }
-
-window.requestAnimationFrame(playGame);

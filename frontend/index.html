@@ -2,16 +2,22 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta http-equiv="Cache-control" content="no-cache, no-store, must-revalidate">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WinkPong</title>
-    <link rel="stylesheet" href="style.css">
+    <title>Video Chat Application</title>
+    <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-    <h1 id="title">WinkPong</h1>
-    <video id="player1_camera" autoplay playsinline muted></video>
-    <video id = "player2_camera" autoplay playsinline muted></video>
-    <canvas id="table_tennis" width="640" height="480"></canvas>
-    <script type="module" src="main.js"></script>
+    <div id="video-chat-lobby">
+        <h2 class="text">Video Chat Application</h2>
+        <input id="roomName" type="text" placeholder="Room Name" />
+        <button id="join">join</button>
+    </div>
+    <div id="video-chat-room">
+        <video id="user-video" playsinline muted autoplay></video>
+        <video id="peer-video" playsinline autoplay></video>
+        <canvas id="table-tennis" width="400" height="640"></canvas>
+    </div>
 </body>
+<script src="https://cdn.socket.io/socket.io-3.0.1.min.js"></script>
+<script type="module" src="main.js"></script>
 </html>
