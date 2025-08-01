@@ -29,6 +29,25 @@ h2 {
   height: 0;
 }
 
+#next-round {
+  position: absolute;
+  bottom: 20px;
+  left: 50%;
+  width: 400px;
+  transform: translateX(-50%);
+  padding: 12px 24px;
+  font-size: 18px;
+  font-weight: bold;
+  border: none;
+  border-radius: 12px;
+  background-color: #007bff;
+  color: white;
+  cursor: pointer;
+  display: none;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+  z-index: 10;
+}
+
 input {
   padding: 20px;
   box-sizing: border-box;

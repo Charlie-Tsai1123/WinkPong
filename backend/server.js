@@ -3,6 +3,7 @@ const socket = require("socket.io");
 const fs = require("fs");
 const https = require('https');
 const path = require('path');
+const { count } = require("console");
 
 const app = express();
 app.use(express.static(path.join(__dirname, "../frontend")));
@@ -78,6 +79,14 @@ io.on("connection", (socket) => {
 
     socket.on('peer-lose', (roomName) => {
         socket.broadcast.to(roomName).emit("receive-lose");
+    })
+
+    socket.on('count-down', (countDown, roomName) => {
+        socket.broadcast.to(roomName).emit('receive-count-down', countDown);
+    })
+
+    socket.on('ready-next-round', (roomName) => {
+        socket.broadcast.to(roomName).emit('receive-ready-next-round');
     })
 
     socket.on("disconnect", () => {

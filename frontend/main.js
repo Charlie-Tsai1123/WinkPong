@@ -4,6 +4,7 @@ const socket = io.connect(`https://${location.host}:443`);
 const divVideoChatLobby = document.getElementById('video-chat-lobby');
 const divVideoChat = document.getElementById('video-chat-room');
 const joinButton = document.getElementById('join');
+const nextRoundButton = document.getElementById('next-round');
 const userVideo = document.getElementById('user-video');
 const peerVideo = document.getElementById('peer-video');
 const roomInput = document.getElementById('roomName');
@@ -28,7 +29,9 @@ let animationFrameId;
 let lastTime;
 let lastVideoTime = -1;
 let lastDetectTime = -1;
-let deltaTime
+let deltaTime;
+let countDown;
+let lastCountDown;
 let runningMode = "VIDEO";
 let faceLandmarker;
 let results;
@@ -41,6 +44,11 @@ let ballY = canvasTableTennis.height / 2;
 let ballRadius = 15;
 let ballSpeedX=  100;
 let ballSpeedY = -100;
+let userScore;
+let peerScore;
+let gameOver;
+let userNextRound = false;
+let peerNextRound = false;
 
 await creatFaceLandmarker();
 
@@ -69,6 +77,10 @@ socket.on('created', () => {
             userVideo.onloadedmetadata = function (e) {
                 userVideo.play();
             };
+            countDown = 3;
+            userScore = 0;
+            peerScore = 0;
+            gameOver = false;
             animationFrameId = requestAnimationFrame(playGame);
         })
         .catch((err) => {
@@ -91,6 +103,10 @@ socket.on('joined', () => {
             userVideo.onloadedmetadata = function (e) {
                 userVideo.play();
             };
+            countDown = 3;
+            userScore = 0;
+            peerScore = 0;
+            gameOver = false;
             animationFrameId = requestAnimationFrame(playGame);
             socket.emit('ready', roomName);
         })
@@ -208,6 +224,30 @@ socket.on('peer-disconnected', () => {
     socket.emit("leave-room", roomName);
 })
 
+// define countDown then run this function
+function runCountDown(currentTime) {
+    console.log(countDown);
+    ctx.fillStyle = "black";
+    ctx.font = "bold 80px Arial";
+    ctx.textAlign = "center";
+    ctx.fillText(countDown > 0 ? countDown : "Start!", canvasTableTennis.width / 2, canvasTableTennis.height / 2);
+
+    if (creator) {
+        if (!lastCountDown) lastCountDown = currentTime;
+        const elapsed = (currentTime - lastCountDown) / 1000;
+        if (elapsed >= 1) {
+            countDown -= 1;
+            lastCountDown = currentTime;
+        }
+        socket.emit('count-down', countDown, roomName);
+    }
+    
+}
+
+socket.on('receive-count-down', (time) => {
+    countDown = time;
+})
+
 function playGame(currentTime) {
     ctx.clearRect(0, 0, canvasTableTennis.width, canvasTableTennis.height);
     // draw user video
@@ -220,25 +260,33 @@ function playGame(currentTime) {
 
     // start to play table tennis
     if (userVideo.readyState >= 2 && peerVideo.readyState >= 2){
-        if (!lastTime) lastTime = currentTime;
-        // calculate delta time
-        deltaTime = (currentTime - lastTime) / 1000 // second
-        lastTime = currentTime;
-
-        // detect whether eye blink or not
-        detectEyeBlink();
-
-        // draw canvas
-        drawCanvas();
-
-        // update params
-        if (creator) {
-            creatorUpdateParams();
+        if (countDown >= 0) {
+            runCountDown(currentTime);
         } else {
-            clientUpdateParams();
+            if (!lastTime) lastTime = currentTime;
+            // calculate delta time
+            deltaTime = (currentTime - lastTime) / 1000 // second
+            lastTime = currentTime;
+
+            // detect whether eye blink or not
+            detectEyeBlink();
+
+            // draw canvas
+            drawCanvas();
+
+            // update params
+            if (creator) {
+                creatorUpdateParams();
+            } else {
+                clientUpdateParams();
+            }
         }
+        
     }
-    animationFrameId = requestAnimationFrame(playGame);
+    if (!gameOver) {
+        animationFrameId = requestAnimationFrame(playGame);
+    }
+    
 }
 
 function drawCanvas() {
@@ -254,6 +302,13 @@ function drawCanvas() {
     ctx.fillStyle = "red";
     ctx.fill();
     ctx.closePath();
+
+    // draw score
+    ctx.fillStyle = "grey";
+    ctx.font = "bold 50px Arial";
+    ctx.textAlign = "center";
+    ctx.fillText(userScore, canvasTableTennis.width / 2, canvasTableTennis.height / 2 + 30);
+    ctx.fillText(peerScore, canvasTableTennis.width / 2, canvasTableTennis.height / 2 - 30);
 }
 
 async function creatFaceLandmarker() {
@@ -324,25 +379,43 @@ function creatorUpdateParams() {
 
     // fall to the ground
     if (ballY + ballRadius > canvasTableTennis.height) {
+        resetGame(false);
+    }
+
+    // client loose
+    if (ballY - ballRadius < 0) {
+        resetGame(true);
+    }
+
+    socket.emit('send-ball-and-paddle', ballX, ballY, userPaddleX, roomName);
+}
+
+function resetGame(win) {
+    if (gameOver) return;
+    gameOver = true;
+    cancelAnimationFrame(animationFrameId);
+    animationFrameId = null;
+    if (win) {
+        socket.emit('peer-lose', roomName);
+        alert("Game over! SKR~ Winner 👑!");
+        ballX = canvasTableTennis.width / 2;
+        ballY = canvasTableTennis.height / 2;
+        ballSpeedY = 100;
+        lastTime = null;
+        userScore += 1;
+        countDown = 3;
+    } else {
         socket.emit('peer-win', roomName);
         alert("Game over! HA! HA! Loser 😵!");
         ballX = canvasTableTennis.width / 2;
         ballY = canvasTableTennis.height / 2;
         ballSpeedY = -100;
-        lastTime = performance.now();
+        lastTime = null;
+        peerScore += 1;
+        countDown = 3;
     }
-
-    // client loose
-    if (ballY - ballRadius < 0) {
-        socket.emit('peer-lose', roomName);
-        alert("Game over! SKR~ Winner 👑!");
-        ballX = canvasTableTennis.width / 2;
-        ballY = canvasTableTennis.height / 2;
-        ballSpeedY = -100;
-        lastTime = performance.now();
-    }
-
-    socket.emit('send-ball-and-paddle', ballX, ballY, userPaddleX, roomName);
+    nextRoundButton.style.display = "block";
+    
 }
 
 // second person
@@ -352,13 +425,54 @@ socket.on('receive-ball-and-paddle', (receiveBallX, receiveBallY, receivePeerPad
     peerPaddleX = receivePeerPaddleX;
 })
 
+// next round button
+nextRoundButton.addEventListener("click", () => {
+    userNextRound = true;
+    socket.emit("ready-next-round", roomName);
+    if (userNextRound && peerNextRound) {
+        gameOver = false;
+        nextRoundButton.style.display = "none";
+        userNextRound = false;
+        peerNextRound = false;
+        animationFrameId = requestAnimationFrame(playGame);
+    }
+})
+
+// peer push next round button
+socket.on("receive-ready-next-round", () => {
+    peerNextRound = true;
+    if (userNextRound && peerNextRound) {
+        gameOver = false;
+        nextRoundButton.style.display = "none";
+        userNextRound = false;
+        peerNextRound = false;
+        animationFrameId = requestAnimationFrame(playGame);
+    }
+})
+
 socket.on("receive-win", () => {
-    alert("Game over! SKR~ Winner 👑!");
+    if (!gameOver) {
+        gameOver = true;
+        cancelAnimationFrame(animationFrameId);
+        animationFrameId = null;
+        alert("Game over! SKR~ Winner 👑!");
+        userScore += 1;
+        lastTime = null;
+        nextRoundButton.style.display = "block";
+    }
     
 })
 
 socket.on("receive-lose", () => {
-    alert("Game over! HA! HA! Loser 😵!");
+    if (!gameOver) {
+        gameOver = true;
+        cancelAnimationFrame(animationFrameId);
+        animationFrameId = null;
+        alert("Game over! HA! HA! Loser 😵!");
+        peerScore += 1;
+        lastTime = null;
+        nextRoundButton.style.display = "block";
+    }
 })
 
 function clientUpdateParams() {
