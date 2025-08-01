@@ -61,6 +61,10 @@ io.on("connection", (socket) => {
 
     socket.on("leave-room", (roomName) => {
         const rooms = io.sockets.adapter.rooms;
+        if (roomName) {
+            console.log(`Notifying others in room: ${roomName}`);
+            socket.broadcast.to(roomName).emit("peer-disconnected", roomName);
+        }
         rooms.delete(roomName);
         console.log(rooms);
     })

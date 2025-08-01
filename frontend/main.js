@@ -4,6 +4,7 @@ const socket = io.connect(`https://${location.host}:443`);
 const divVideoChatLobby = document.getElementById('video-chat-lobby');
 const divVideoChat = document.getElementById('video-chat-room');
 const joinButton = document.getElementById('join');
+const exitButton = document.getElementById('exit');
 const nextRoundButton = document.getElementById('next-round');
 const userVideo = document.getElementById('user-video');
 const peerVideo = document.getElementById('peer-video');
@@ -190,9 +191,18 @@ socket.on('sendAnswer', (answer) => {
     rtcPeerConnection.setRemoteDescription(answer);
 })
 
+// back to lobby
 socket.on('peer-disconnected', () => {
     alert("Your chat partner has left!!");
 
+    backToLobby();
+})
+
+exitButton.addEventListener("click", () => {
+    backToLobby();
+})
+
+function backToLobby() {
     // back to lobby
     divVideoChat.style.display = "none";
     divVideoChatLobby.style.display = "block";
@@ -220,9 +230,11 @@ socket.on('peer-disconnected', () => {
     animationFrameId = null;
 
     creator = false;
+    nextRoundButton.style.display = "none";
+    exitButton.style.display = "none";
 
     socket.emit("leave-room", roomName);
-})
+}
 
 // define countDown then run this function
 function runCountDown(currentTime) {
@@ -415,6 +427,7 @@ function resetGame(win) {
         countDown = 3;
     }
     nextRoundButton.style.display = "block";
+    exitButton.style.display = "block";
     
 }
 
@@ -432,6 +445,7 @@ nextRoundButton.addEventListener("click", () => {
     if (userNextRound && peerNextRound) {
         gameOver = false;
         nextRoundButton.style.display = "none";
+        exitButton.style.display = "none";
         userNextRound = false;
         peerNextRound = false;
         animationFrameId = requestAnimationFrame(playGame);
@@ -444,6 +458,7 @@ socket.on("receive-ready-next-round", () => {
     if (userNextRound && peerNextRound) {
         gameOver = false;
         nextRoundButton.style.display = "none";
+        exitButton.style.display = "none"
         userNextRound = false;
         peerNextRound = false;
         animationFrameId = requestAnimationFrame(playGame);
@@ -459,6 +474,7 @@ socket.on("receive-win", () => {
         userScore += 1;
         lastTime = null;
         nextRoundButton.style.display = "block";
+        exitButton.style.display = "block";
     }
     
 })
@@ -472,6 +488,7 @@ socket.on("receive-lose", () => {
         peerScore += 1;
         lastTime = null;
         nextRoundButton.style.display = "block";
+        exitButton.style.display = "block";
     }
 })
 
