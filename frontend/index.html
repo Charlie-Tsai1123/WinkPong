@@ -8,9 +8,16 @@
 </head>
 <body>
     <div id="video-chat-lobby">
-        <h2 class="text">😉 Wink Pong 🏓👀</h2>
-        <input id="roomName" type="text" placeholder="Room Name" />
-        <button id="join">join</button>
+        <div id="join-room">
+            <h2 class="text">😉 Wink Pong 🏓👀</h2>
+            <input id="roomName" type="text" placeholder="Room Name" />
+            <button id="join">join</button>
+        </div>
+        <div id="all-room">
+            <h3 class="text">Available Room</h3>
+            <ul id="room-list"></ul>
+        </div>
+        
     </div>
     <div id="video-chat-room">
         <video id="user-video" playsinline muted autoplay></video>

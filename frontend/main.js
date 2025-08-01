@@ -10,6 +10,7 @@ const userVideo = document.getElementById('user-video');
 const peerVideo = document.getElementById('peer-video');
 const roomInput = document.getElementById('roomName');
 const canvasTableTennis = document.getElementById('table-tennis');
+const roomList = document.getElementById('room-list');
 const ctx = canvasTableTennis.getContext("2d");
 const iceServers = {
   iceServers: [
@@ -54,12 +55,26 @@ let peerNextRound = false;
 await creatFaceLandmarker();
 
 joinButton.addEventListener("click", () => {
-    if (roomInput.value == "") {
+    if (roomInput.value == "" || roomInput.value == "lobby") {
         alert("Please enter a room name");
     } else {
         roomName = roomInput.value;
         socket.emit('join', roomName);
     }
+})
+
+socket.on('room-list', (activeRooms) => {
+    console.log("test room list");
+    roomList.innerHTML = "";
+    activeRooms.forEach((room) => {
+        const li = document.createElement('li');
+        li.textContent = room;
+        li.style.cursor = "pointer";
+        li.onclick = () => {
+            roomInput.value = room;
+        };
+        roomList.appendChild(li);
+    })
 })
 
 socket.on('created', () => {
@@ -203,6 +218,16 @@ exitButton.addEventListener("click", () => {
 })
 
 function backToLobby() {
+    creator = false;
+    ballX = canvasTableTennis.width / 2;
+    ballY = canvasTableTennis.height / 2;
+    ballSpeedY = 100;
+    countDown = 3;
+    lastTime = null;
+    lastVideoTime = -1;
+    lastDetectTime = -1;
+    gameOver = false;
+
     // back to lobby
     divVideoChat.style.display = "none";
     divVideoChatLobby.style.display = "block";

@@ -15,6 +15,7 @@ const options = {
 
 const server = https.createServer(options, app);
 const io = socket(server);
+let activeRooms = new Set();
 
 server.listen(443, () => {
     console.log("WebSocket server is running at https://localhost:443");
@@ -23,6 +24,13 @@ server.listen(443, () => {
 io.on("connection", (socket) => {
     console.log("User connected: " + socket.id);
 
+    socket.join("lobby");
+    console.log(activeRooms);
+    setTimeout(() => {
+        io.to("lobby").emit("room-list", Array.from(activeRooms));
+    }, 1000);
+    
+
     socket.on("join", (roomName) => {
         const rooms = io.sockets.adapter.rooms;
         const room = rooms.get(roomName);
@@ -30,15 +38,21 @@ io.on("connection", (socket) => {
         if (room == undefined) {
             socket.join(roomName);
             socket.data.roomName = roomName;
+            socket.leave("lobby");
+            activeRooms.add(roomName);
             socket.emit('created');
         } else if (room.size == 1) {
             socket.join(roomName);
             socket.data.roomName = roomName;
+            socket.leave("lobby");
+            activeRooms.delete(roomName);
             socket.emit('joined');
         } else {
             socket.emit('full');
         }
         console.log(rooms);
+        io.to("lobby").emit("room-list", Array.from(activeRooms));
+        console.log(activeRooms);
     })
 
     socket.on("ready", (roomName) => {
@@ -66,6 +80,8 @@ io.on("connection", (socket) => {
             socket.broadcast.to(roomName).emit("peer-disconnected", roomName);
         }
         rooms.delete(roomName);
+        socket.join("lobby");
+        io.to("lobby").emit("room-list", Array.from(activeRooms));
         console.log(rooms);
     })
 
@@ -94,12 +110,15 @@ io.on("connection", (socket) => {
     })
 
     socket.on("disconnect", () => {
+        socket.leave("lobby");
         console.log(`Client ${socket.id} disconnected, room ${socket.data.roomName} will be closed`);
         const roomName = socket.data.roomName;
         if (roomName) {
             console.log(`Notifying others in room: ${roomName}`);
             socket.broadcast.to(roomName).emit("peer-disconnected", roomName);
+            activeRooms.delete(roomName);
         }
+        io.to("lobby").emit("room-list", Array.from(activeRooms));
     })
 })
 
