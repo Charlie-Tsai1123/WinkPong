@@ -148,6 +148,7 @@ socket.on('ready', () => {
             }
         }
         rtcPeerConnection.ontrack = (event) => {
+            console.log("Received remote track");
             peerVideo.srcObject = event.streams[0];
             peerVideo.onloadedmetadata = function (e) {
                 peerVideo.play();
@@ -169,6 +170,7 @@ socket.on('ready', () => {
 
 // both person receive the candidate of other
 socket.on('sendCandidate', (candidate) => {
+    console.log("receive ICE candiate!!");
     rtcPeerConnection.addIceCandidate(new RTCIceCandidate(candidate));
 })
 
@@ -183,6 +185,7 @@ socket.on('sendOffer', (offer) => {
             }
         }
         rtcPeerConnection.ontrack = (event) => {
+            console.log("receive remote track");
             peerVideo.srcObject = event.streams[0];
             peerVideo.onloadedmetadata = function (e) {
                 peerVideo.play();
