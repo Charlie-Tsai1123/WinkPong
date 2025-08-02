@@ -17,12 +17,9 @@ const iceServers = {
     { urls: "stun:stun.services.mozilla.com" },
     { urls: "stun:stun.l.google.com:19302" },
     {
-        urls: [
-            "turn:turn.anyfirewall.com:443?transport=tcp",
-            "turn:turn.anyfirewall.com:80?transport=tcp",
-        ],
-        username: "webrtc",
-        credential: "webrtc",
+        urls: 'turn:relay1.expressturn.com:3480',
+        username: "000000002069487110",
+        credential: "FZnt3WcsglfBAB6SHBrwPtdWr6E=",
     },
   ],
 };
