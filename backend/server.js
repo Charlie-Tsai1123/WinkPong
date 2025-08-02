@@ -1,24 +1,20 @@
 const express = require("express");
 const socket = require("socket.io");
 const fs = require("fs");
-const https = require('https');
+const http = require('http');
 const path = require('path');
 const { count } = require("console");
+const PORT = process.env.PORT || 3000;
 
 const app = express();
 app.use(express.static(path.join(__dirname, "../frontend")));
 
-const options = {
-  key: fs.readFileSync(path.join(__dirname, "certs/key.pem")),
-  cert: fs.readFileSync(path.join(__dirname, "certs/cert.pem")),
-};
-
-const server = https.createServer(options, app);
+const server = http.createServer(app);
 const io = socket(server);
 let activeRooms = new Set();
 
-server.listen(443, () => {
-    console.log("WebSocket server is running at https://localhost:443");
+server.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
 })
 
 io.on("connection", (socket) => {
@@ -79,6 +75,7 @@ io.on("connection", (socket) => {
             console.log(`Notifying others in room: ${roomName}`);
             socket.broadcast.to(roomName).emit("peer-disconnected", roomName);
         }
+        socket.leave(roomName);
         rooms.delete(roomName);
         socket.join("lobby");
         io.to("lobby").emit("room-list", Array.from(activeRooms));
@@ -116,6 +113,7 @@ io.on("connection", (socket) => {
         if (roomName) {
             console.log(`Notifying others in room: ${roomName}`);
             socket.broadcast.to(roomName).emit("peer-disconnected", roomName);
+            socket.leave(roomName);
             activeRooms.delete(roomName);
         }
         io.to("lobby").emit("room-list", Array.from(activeRooms));
