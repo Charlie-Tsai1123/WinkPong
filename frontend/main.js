@@ -48,6 +48,10 @@ let ballSpeedX=  200;
 let ballSpeedY = -200;
 let userScore;
 let peerScore;
+let userHitBoard = false;
+let peerHitBoard = false;
+let ballHitRight = false;
+let ballHitLeft = false;
 let gameOver;
 let userNextRound = false;
 let peerNextRound = false;
@@ -401,20 +405,51 @@ function creatorUpdateParams() {
     ballY += ballSpeedY * deltaTime;
 
     // hit the wall
-    if (ballX + ballRadius > canvasTableTennis.width || ballX - ballRadius < 0) ballSpeedX *= -1;
-    if (ballY - ballRadius < 0) ballSpeedY *= -1;
+    if (ballX + ballRadius > canvasTableTennis.width) {
+        if (!ballHitLeft) {
+            ballSpeedX *= -1;
+            ballHitLeft = true;
+        }
+    } else {
+        ballHitLeft = false;
+    }
+
+    if (ballX - ballRadius < 0) {
+        if (!ballHitRight) {
+            ballSpeedX *= -1;
+            ballHitRight = true;
+        }
+    } else {
+        ballHitRight = false;
+    }
+
+    // if (ballY - ballRadius < 0) ballSpeedY *= -1;
 
     //hit the board
     if (ballY + ballRadius > canvasTableTennis.height - paddleHeight - 30 &&
-        ballX > userPaddleX && ballX < userPaddleX + paddleWidth
+        ballX > userPaddleX && 
+        ballX < userPaddleX + paddleWidth
     ) {
-        ballSpeedY *= -1;
+        if (!userHitBoard) {
+            ballSpeedY *= -1;
+            userHitBoard = true;
+            peerHitBoard = false;
+        }
+    } else {
+        userHitBoard = false;
     }
 
     if (ballY - ballRadius < 30 + paddleHeight && 
-        ballX > peerPaddleX && ballX < peerPaddleX + paddleWidth
+        ballX > peerPaddleX && 
+        ballX < peerPaddleX + paddleWidth
     ) {
-        ballSpeedY *= -1;
+        if (!peerHitBoard) {
+            ballSpeedY *= -1;
+            peerHitBoard = true;
+            userHitBoard = false;
+        }
+    } else {
+        peerHitBoard = false;
     }
 
     // fall to the ground
