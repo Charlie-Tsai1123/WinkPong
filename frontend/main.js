@@ -4,6 +4,7 @@ const socket = io.connect(`https://${location.host}:443`);
 const divVideoChatLobby = document.getElementById('video-chat-lobby');
 const divVideoChat = document.getElementById('video-chat-room');
 const joinButton = document.getElementById('join');
+const playButton = document.getElementById('play');
 const exitButton = document.getElementById('exit');
 const nextRoundButton = document.getElementById('next-round');
 const userVideo = document.getElementById('user-video');
@@ -55,6 +56,16 @@ let ballHitLeft = false;
 let gameOver;
 let userNextRound = false;
 let peerNextRound = false;
+let aloneBombMode = false;
+let bombX = canvasTableTennis.width / 2;
+let bombY = canvasTableTennis.height / 2;
+let bombRadius = 15;
+let bombSpeedX=  -80;
+let bombSpeedY = -180;
+let bombUserHitBoard = false;
+let bombPeerHitBoard = false;
+let bombHitRight = false;
+let bombHitLeft = false;
 
 await creatFaceLandmarker();
 
@@ -582,3 +593,239 @@ function clientUpdateParams() {
 socket.on('receive-paddle', (receivePeerPaddleX) => {
     peerPaddleX = receivePeerPaddleX;
 })
+
+
+// single mode
+playButton.addEventListener("click", () => {
+    navigator.mediaDevices
+        .getUserMedia({
+            audio: true,
+            video: true,
+        })
+        .then((stream) => {
+            userStream = stream;
+            divVideoChatLobby.style = "display:none";
+            divVideoChat.style = "display:block";
+            userVideo.srcObject = stream;
+            userVideo.onloadedmetadata = function (e) {
+                userVideo.play();
+            };
+            countDown = 3;
+            userScore = 0;
+            gameOver = false;
+            animationFrameId = requestAnimationFrame(playGameAlone);
+        })
+        .catch((err) => {
+            alert("Couldn't access user media");
+        })
+})
+
+function playGameAlone(currentTime) {
+    ctx.clearRect(0, 0, canvasTableTennis.width, canvasTableTennis.height);
+    // draw user video
+    if (userVideo.readyState >= 2) {
+        ctx.drawImage(userVideo, 0, 0, canvasTableTennis.width, canvasTableTennis.height);
+        if (countDown >= 0) {
+            runCountDown(currentTime);
+            if (!lastCountDown) lastCountDown = currentTime;
+            const elapsed = (currentTime - lastCountDown) / 1000;
+            if (elapsed >= 1) {
+                countDown -= 1;
+                lastCountDown = currentTime;
+            }
+        } else {
+            if (!lastTime) lastTime = currentTime;
+            // calculate delta time
+            deltaTime = (currentTime - lastTime) / 1000 // second
+            lastTime = currentTime;
+
+            // detect whether eye blink or not
+            detectEyeBlink();
+
+            // draw canvas
+            drawCanvasAlone();
+
+            // update params
+            aloneUpdateParams();
+        }
+    }
+
+    
+
+    if (!gameOver) {
+        animationFrameId = requestAnimationFrame(playGameAlone);
+    }
+}
+
+function drawCanvasAlone() {
+    // draw user (blue) and peer (green) paddle
+    ctx.fillStyle = "blue";
+    ctx.fillRect(userPaddleX, canvasTableTennis.height - paddleHeight - 30, paddleWidth, paddleHeight);
+
+    // draw ball
+    ctx.beginPath();
+    ctx.arc(ballX, ballY, ballRadius, 0, Math.PI*2);
+    ctx.fillStyle = "red";
+    ctx.fill();
+    ctx.closePath();
+
+    // draw bomb
+    ctx.beginPath();
+    ctx.arc(bombX, bombY, bombRadius, 0, Math.PI*2);
+    const blinkSpeed = 500; // 每500ms變換一次顏色
+    const isYellow = Math.floor(Date.now() / blinkSpeed) % 2 === 0;
+    ctx.fillStyle = isYellow ? "yellow" : "black";
+    ctx.fill();
+    ctx.closePath();
+
+    // draw score
+    ctx.fillStyle = "grey";
+    ctx.font = "bold 50px Arial";
+    ctx.textAlign = "center";
+    ctx.fillText(userScore, canvasTableTennis.width / 2, canvasTableTennis.height / 2 + 30);
+}
+
+function aloneUpdateParams() {
+    // blink to move paddle
+    if (eyeBlinkLeft && eyeBlinkRight && (eyeBlinkLeft.score >= 0.3 || eyeBlinkRight.score >= 0.3)) {
+        if (eyeBlinkLeft.score - eyeBlinkRight.score > 0.05) userPaddleX -= paddleSpeed * deltaTime;
+        if (eyeBlinkRight.score - eyeBlinkLeft.score > 0.05) userPaddleX += paddleSpeed * deltaTime;
+    }
+
+    userPaddleX = Math.max(0, Math.min(userPaddleX, canvasTableTennis.width - paddleWidth));
+
+    ballX += ballSpeedX * deltaTime;
+    ballY += ballSpeedY * deltaTime;
+    bombX += bombSpeedX * deltaTime;
+    bombY += bombSpeedY * deltaTime;
+
+
+    // hit the wall
+    if (ballX + ballRadius > canvasTableTennis.width) {
+        if (!ballHitLeft) {
+            ballSpeedX *= -1;
+            ballHitLeft = true;
+        }
+    } else {
+        ballHitLeft = false;
+    }
+
+    if (ballX - ballRadius < 0) {
+        if (!ballHitRight) {
+            ballSpeedX *= -1;
+            ballHitRight = true;
+        }
+    } else {
+        ballHitRight = false;
+    }
+
+    if (ballY - ballRadius < 0) {
+        if (!peerHitBoard) {
+            ballSpeedY *= -1;
+            peerHitBoard = true;
+        }
+    } else {
+        peerHitBoard = false;
+    }
+
+    if (bombX + bombRadius > canvasTableTennis.width) {
+        if (!bombHitLeft) {
+            bombSpeedX *= -1;
+            bombHitLeft = true;
+        }
+    } else {
+        bombHitLeft = false;
+    }
+
+    if (bombX - bombRadius < 0) {
+        if (!bombHitRight) {
+            bombSpeedX *= -1;
+            bombHitRight = true;
+        }
+    } else {
+        bombHitRight = false;
+    }
+
+    if (bombY - bombRadius < 0) {
+        if (!peerHitBoard) {
+            bombSpeedY *= -1;
+            bombPeerHitBoard = true;
+        }
+    } else {
+        bombPeerHitBoard = false;
+    }
+
+    // if (ballY - ballRadius < 0) ballSpeedY *= -1;
+
+    //hit the board
+    if (ballY + ballRadius > canvasTableTennis.height - paddleHeight - 30 &&
+        ballX > userPaddleX && 
+        ballX < userPaddleX + paddleWidth
+    ) {
+        if (!userHitBoard) {
+            ballSpeedY *= -1;
+            userHitBoard = true;
+            peerHitBoard = false;
+            userScore += 1;
+        }
+    } else {
+        userHitBoard = false;
+    }
+
+    // ball fail to ground
+    if (ballY + ballRadius > canvasTableTennis.height) {
+        aloneOver();
+    } 
+
+    // fail to ground
+    if (bombY + bombRadius > canvasTableTennis.height) {
+        if (!peerHitBoard) {
+            bombSpeedY *= -1;
+            bombUserHitBoard = true;
+        }
+    } else {
+        bombUserHitBoard = false;
+    }
+    // touch bomb
+    if (bombX + bombRadius > userPaddleX &&
+        bombX - bombRadius < userPaddleX + paddleWidth &&
+        bombY + bombRadius > canvasTableTennis.height - paddleHeight - 30 && bombY - bombRadius < canvasTableTennis.height - 30
+    ) {
+        aloneOver();
+    }
+
+}
+
+function aloneOver() {
+    alert(`Game over! SKR~ You earn ${userScore} 👑!`);
+    ballX = canvasTableTennis.width / 2;
+    ballY = canvasTableTennis.height / 2;
+    ballSpeedY = 200;
+    lastTime = null;
+    userScore = 0;
+    countDown = 3;
+    bombX = canvasTableTennis.width / 2;
+    bombY = canvasTableTennis.height / 2;
+    bombRadius = 15;
+    bombSpeedX=  -80;
+    bombSpeedY = -180;
+    let confirmResult = confirm("Do you want to play again?");
+    if (!confirmResult) {
+        lastVideoTime = -1;
+        lastDetectTime = -1;
+        divVideoChat.style.display = "none";
+        divVideoChatLobby.style.display = "block";
+        // stop user stream
+        if (userStream) {
+            userStream.getTracks().forEach(track => track.stop());
+            userVideo.srcObject = null;
+        }
+        // clear canvas
+        ctx.clearRect(0, 0, canvasTableTennis.width, canvasTableTennis.height);
+
+        // cancel animation frame
+        gameOver = true;
+        cancelAnimationFrame(animationFrameId);
+        animationFrameId = null;
+    }
+}
