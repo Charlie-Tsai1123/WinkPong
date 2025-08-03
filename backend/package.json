@@ -1,5 +1,5 @@
 {
-  "name": "backend",
+  "name": "winkpong-backend",
   "version": "1.0.0",
   "main": "server.js",
   "scripts": {
@@ -7,9 +7,9 @@
     "start": "node server.js"
   },
   "keywords": [],
-  "author": "",
+  "author": "Charlie-Tsai1123",
   "license": "ISC",
-  "description": "",
+  "description": "Backend server for WinkPong deployed to Render",
   "dependencies": {
     "express": "^5.1.0",
     "socket.io": "^4.8.1"

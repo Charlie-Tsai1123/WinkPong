@@ -79,6 +79,7 @@ io.on("connection", (socket) => {
             console.log(`Notifying others in room: ${roomName}`);
             socket.broadcast.to(roomName).emit("peer-disconnected", roomName);
         }
+        socket.leave(roomName);
         rooms.delete(roomName);
         socket.join("lobby");
         io.to("lobby").emit("room-list", Array.from(activeRooms));
@@ -116,6 +117,7 @@ io.on("connection", (socket) => {
         if (roomName) {
             console.log(`Notifying others in room: ${roomName}`);
             socket.broadcast.to(roomName).emit("peer-disconnected", roomName);
+            socket.leave(roomName);
             activeRooms.delete(roomName);
         }
         io.to("lobby").emit("room-list", Array.from(activeRooms));

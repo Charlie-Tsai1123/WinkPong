@@ -23,6 +23,33 @@ body {
   background-color: #94AEDB;
 }
 
+#room-list {
+    list-style: none;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 16px;
+    max-width: 600px;
+    margin: 0 auto;
+}
+
+.room-item {
+    background-color: #f0f0f0;
+    border-radius: 12px;
+    padding: 16px;
+    text-align: center;
+    font-weight: bold;
+    font-size: 18px;
+    cursor: pointer;
+    transition: transform 0.2s, background-color 0.2s;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.room-item:hover {
+    background-color: #e0e0e0;
+    transform: scale(1.05);
+}
+
 #video-chat-room {
   text-align: center;
 }

@@ -44,8 +44,8 @@ let peerPaddleX = (canvasTableTennis.width - paddleWidth) / 2;
 let ballX = canvasTableTennis.width / 2;
 let ballY = canvasTableTennis.height / 2;
 let ballRadius = 15;
-let ballSpeedX=  100;
-let ballSpeedY = -100;
+let ballSpeedX=  200;
+let ballSpeedY = -200;
 let userScore;
 let peerScore;
 let gameOver;
@@ -69,7 +69,7 @@ socket.on('room-list', (activeRooms) => {
     activeRooms.forEach((room) => {
         const li = document.createElement('li');
         li.textContent = room;
-        li.style.cursor = "pointer";
+        li.className = "room-item";
         li.onclick = () => {
             roomInput.value = room;
         };
@@ -115,6 +115,7 @@ socket.on('joined', () => {
         .then((stream) => {
             userStream = stream;
             divVideoChatLobby.style = "display:none";
+            divVideoChat.style = "display:block";
             userVideo.srcObject = stream;
             userVideo.onloadedmetadata = function (e) {
                 userVideo.play();
@@ -218,15 +219,17 @@ exitButton.addEventListener("click", () => {
 })
 
 function backToLobby() {
+    socket.emit("leave-room", roomName);
     creator = false;
     ballX = canvasTableTennis.width / 2;
     ballY = canvasTableTennis.height / 2;
-    ballSpeedY = 100;
+    ballSpeedY = 200;
     countDown = 3;
     lastTime = null;
     lastVideoTime = -1;
     lastDetectTime = -1;
     gameOver = false;
+    roomName = null;
 
     // back to lobby
     divVideoChat.style.display = "none";
@@ -264,7 +267,7 @@ function backToLobby() {
 // define countDown then run this function
 function runCountDown(currentTime) {
     console.log(countDown);
-    ctx.fillStyle = "black";
+    ctx.fillStyle = "#9810f3ff";
     ctx.font = "bold 80px Arial";
     ctx.textAlign = "center";
     ctx.fillText(countDown > 0 ? countDown : "Start!", canvasTableTennis.width / 2, canvasTableTennis.height / 2);
@@ -344,8 +347,8 @@ function drawCanvas() {
     ctx.fillStyle = "grey";
     ctx.font = "bold 50px Arial";
     ctx.textAlign = "center";
-    ctx.fillText(userScore, canvasTableTennis.width / 2, canvasTableTennis.height / 2 + 30);
-    ctx.fillText(peerScore, canvasTableTennis.width / 2, canvasTableTennis.height / 2 - 30);
+    ctx.fillText(userScore, canvasTableTennis.width / 2, canvasTableTennis.height / 2 + 40);
+    ctx.fillText(peerScore, canvasTableTennis.width / 2, canvasTableTennis.height / 2 - 20);
 }
 
 async function creatFaceLandmarker() {
@@ -437,7 +440,7 @@ function resetGame(win) {
         alert("Game over! SKR~ Winner 👑!");
         ballX = canvasTableTennis.width / 2;
         ballY = canvasTableTennis.height / 2;
-        ballSpeedY = 100;
+        ballSpeedY = 200;
         lastTime = null;
         userScore += 1;
         countDown = 3;
@@ -446,7 +449,7 @@ function resetGame(win) {
         alert("Game over! HA! HA! Loser 😵!");
         ballX = canvasTableTennis.width / 2;
         ballY = canvasTableTennis.height / 2;
-        ballSpeedY = -100;
+        ballSpeedY = -200;
         lastTime = null;
         peerScore += 1;
         countDown = 3;
@@ -465,10 +468,14 @@ socket.on('receive-ball-and-paddle', (receiveBallX, receiveBallY, receivePeerPad
 
 // next round button
 nextRoundButton.addEventListener("click", () => {
+    nextRoundButton.style.backgroundColor = "#7db3ecff";
+    nextRoundButton.textContent = "Wait...⏳";
     userNextRound = true;
     socket.emit("ready-next-round", roomName);
     if (userNextRound && peerNextRound) {
         gameOver = false;
+        nextRoundButton.textContent = "Next Round 🔜";
+        nextRoundButton.style.backgroundColor = "#007bff";
         nextRoundButton.style.display = "none";
         exitButton.style.display = "none";
         userNextRound = false;
@@ -482,6 +489,8 @@ socket.on("receive-ready-next-round", () => {
     peerNextRound = true;
     if (userNextRound && peerNextRound) {
         gameOver = false;
+        nextRoundButton.textContent = "Next Round 🔜";
+        nextRoundButton.style.backgroundColor = "#007bff";
         nextRoundButton.style.display = "none";
         exitButton.style.display = "none"
         userNextRound = false;
