@@ -8,6 +8,11 @@ body {
     color: #fff;
 }
 
+#banner {
+  max-width: 600px;
+  width: 100%;
+}
+
 #video-chat-lobby {
     text-align: center;
     max-width: 600px;
