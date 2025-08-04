@@ -8,8 +8,13 @@
 </head>
 <body>
     <div id="video-chat-lobby">
+        <img src="Wink-Pong.png" alt="wink-pong logo">
+        <div id="single">
+            <h2 class="text">👀 Play alone (ping pong bomb) 🏓</h2>
+            <button id="play">play</button>
+        </div>
         <div id="join-room">
-            <h2 class="text">😉 Wink Pong 🏓👀</h2>
+            <h2 class="text">😉 Play with others 🏓</h2>
             <input id="roomName" type="text" placeholder="Room Name" />
             <button id="join">join</button>
         </div>
@@ -17,7 +22,13 @@
             <h3 class="text">Available Room</h3>
             <ul id="room-list"></ul>
         </div>
-        
+        <div id="footer">
+            <p class="text">
+                🔗 Follow the creator: 
+                <a href="https://github.com/Charlie-Tsai1123/WinkPong" target="_blank">GitHub</a> |
+                <a href="https://charlie-tsai1123.github.io/charlieBlog/" target="_blank">Blog</a>
+            </p>
+        </div>
     </div>
     <div id="video-chat-room">
         <video id="user-video" playsinline muted autoplay></video>

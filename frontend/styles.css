@@ -14,7 +14,8 @@ body {
     margin: 30px auto;
 }
 
-#join-room {
+#join-room,
+#single {
   background-color: #333232;
   margin-bottom: 60px;
 }
@@ -48,6 +49,22 @@ body {
 .room-item:hover {
     background-color: #e0e0e0;
     transform: scale(1.05);
+}
+
+#footer {
+  text-align: center; 
+  margin-top: 40px;
+}
+
+footer a {
+    color: #f5f2f2;
+    text-decoration: none;
+    margin: 0 8px;
+}
+
+footer a:hover {
+    color: #007bff;
+    text-decoration: underline;
 }
 
 #video-chat-room {
