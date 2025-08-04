@@ -273,8 +273,12 @@ function backToLobby() {
     animationFrameId = null;
 
     creator = false;
+    nextRoundButton.textContent = "Next Round 🔜";
+    nextRoundButton.style.backgroundColor = "#007bff";
     nextRoundButton.style.display = "none";
     exitButton.style.display = "none";
+    userNextRound = false;
+    peerNextRound = false;
 
     socket.emit("leave-room", roomName);
 }
